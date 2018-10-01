@@ -1,6 +1,6 @@
 {
   "name": "wallhaven-fetcher",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "a cli tool to fetch wallhaven wallpapers",
   "main": "wallhaven-cli.js",
   "author": "Nicolas Beaussart <nic.beaussart@gmail.com>",

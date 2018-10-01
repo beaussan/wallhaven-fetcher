@@ -10,12 +10,13 @@ const api = new Wallhaven();
 
 async function searchAndSave(
   keywords,
-  { random = false, nsfw = false, sketchy = false, hasFilename = false },
+  { random = false, nsfw = false, sketchy = false, hasFilename = false, catherogy = [] },
 ) {
   const data = await api.search(keywords.join(' '), {
     nsfw,
     sketchy,
     sorting: random ? 'random' : 'relevance',
+    categories: catherogy,
   });
   const firstImage = data.images[0];
   const firstImgData = await api.details(firstImage.id);
@@ -44,18 +45,32 @@ async function searchAndSave(
 }
 
 program
-  // .command('goFetch <terms> [otherTerms...]')
   .usage('<terms ...>')
   .option('-r, --random', 'Pick one randomly')
   .option('-N, --nsfw', 'Enable the nsfw filter')
   .option('-S, --sketchy', 'Enable the sketchy filter')
+  .option('--no-general', 'Remove general category')
+  .option('--no-anime', 'Remove anime category')
+  .option('--no-people', 'Remove people category')
   .option('-o, --output [file]', 'The path to save the file');
 
 program.parse(process.argv);
+
+const catherogy = [];
+if (program.general) {
+  catherogy.push('general');
+}
+if (program.anime) {
+  catherogy.push('anime');
+}
+if (program.people) {
+  catherogy.push('people');
+}
 
 searchAndSave(program.args, {
   random: !!program.random,
   sketchy: !!program.sketchy,
   nsfw: !!program.nsfw,
   hasFilename: program.output,
+  catherogy,
 });
