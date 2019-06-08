@@ -21,7 +21,6 @@ Usage: wallhaven <terms ...>
 Options:
 
   -r, --random         Pick one randomly
-  -N, --nsfw           Enable the nsfw filter
   -S, --sketchy        Enable the sketchy filter
   -o, --output [file]  The path to save the file
   -h, --help           output usage information

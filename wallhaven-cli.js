@@ -1,53 +1,77 @@
 #!/usr/bin/env node
 
 const program = require('commander');
-const Wallhaven = require('wallhaven-api');
 const fs = require('fs');
-const https = require('https');
-const Stream = require('stream').Transform;
+const axios = require('axios');
+const querystring = require('querystring');
+const progress = require('stream-progressbar');
 
-const api = new Wallhaven();
+function boolanToNumber(value) {
+  return value ? '1' : '0';
+}
+
+function categoryToNumber(category = { general: false, anime: false, people: false }) {
+  return `${boolanToNumber(category.general)}${boolanToNumber(
+    category.anime,
+  )}${boolanToNumber(category.people)}`;
+}
+
+async function downloadImage(url, filename) {
+  const writer = fs.createWriteStream(filename);
+
+  const response = await axios({
+    url,
+    method: 'GET',
+    responseType: 'stream',
+  });
+
+  response.data
+    .pipe(progress(':bar'))
+    .pipe(writer);
+
+  return new Promise((resolve, reject) => {
+    writer.on('finish', resolve);
+    writer.on('error', reject);
+  });
+}
+
+async function search({ random = false, sketchy = false, search = '', category }) {
+  const params = querystring.stringify({
+    q: `${search}`,
+    sorting: random ? 'random': 'relevance',
+    categories: categoryToNumber(category),
+    purity: `1${boolanToNumber(sketchy)}0`,
+    atleast: '1920x1080',
+    ratios: '16x9'
+  });
+  const { data } = await axios.get(
+    `https://wallhaven.cc/api/v1/search?${params}`,
+  );
+  return data.data;
+}
 
 async function searchAndSave(
   keywords,
-  { random = false, nsfw = false, sketchy = false, hasFilename = false, catherogy = [] },
+  { random = false, sketchy = false, hasFilename = false, category = [] },
 ) {
-  const data = await api.search(keywords.join(' '), {
-    nsfw,
+  const data = await search({
     sketchy,
-    sorting: random ? 'random' : 'relevance',
-    categories: catherogy,
+    random,
+    category,
+    search: keywords.join(' '),
   });
-  const firstImage = data.images[0];
-  const firstImgData = await api.details(firstImage.id);
+  // const selector = random ? Math.floor(Math.random() * data.length) : 0;
+  const firstImage = data[0];
 
-  console.log(firstImgData.fullImage);
-
-  https
-    .request(firstImgData.fullImage, function(response) {
-      var data = new Stream();
-
-      response.on('data', function(chunk) {
-        data.push(chunk);
-      });
-
-      response.on('end', function() {
-        let file = '';
-        if (hasFilename) {
-          file = hasFilename;
-        } else {
-          file = `wallhaven-${firstImage.id}.jpg`;
-        }
-        fs.writeFileSync(file, data.read());
-      });
-    })
-    .end();
+  await downloadImage(
+    firstImage.path,
+    hasFilename ? hasFilename : `wallhaven-${firstImage.id}.jpg`,
+  );
 }
 
 program
   .usage('<terms ...>')
   .option('-r, --random', 'Pick one randomly')
-  .option('-N, --nsfw', 'Enable the nsfw filter')
   .option('-S, --sketchy', 'Enable the sketchy filter')
   .option('--no-general', 'Remove general category')
   .option('--no-anime', 'Remove anime category')
@@ -56,21 +80,15 @@ program
 
 program.parse(process.argv);
 
-const catherogy = [];
-if (program.general) {
-  catherogy.push('general');
-}
-if (program.anime) {
-  catherogy.push('anime');
-}
-if (program.people) {
-  catherogy.push('people');
-}
+const category = {
+  general: !!program.general,
+  anime: !!program.anime,
+  people: !!program.people,
+};
 
 searchAndSave(program.args, {
   random: !!program.random,
   sketchy: !!program.sketchy,
-  nsfw: !!program.nsfw,
   hasFilename: program.output,
-  catherogy,
+  category,
 });
